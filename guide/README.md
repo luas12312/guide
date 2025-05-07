@@ -1,33 +1,144 @@
-# Introduction
+atlantis-bot/
+├── commands/
+│   └── eglen.js  ← Tüm komutlar burada
+├── deploy-commands.js
+├── index.js
+├── .env
+├── .gitignore
+└── package.json
+{
+  "name": "atlantis-bot",
+  "version": "1.0.0",
+  "description": "Atlantis eğlence botu",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.11.0",
+    "dotenv": "^16.0.3"
+  }
+}
 
-If you're reading this, it probably means you want to learn how to make a bot with discord.js. Awesome! You've come to the right place.
-This guide will teach you things such as:
-- How to get a bot [up and running](/preparations/) from scratch;
-- How to properly [create](/creating-your-bot/), [organize](/creating-your-bot/command-handling.md), and expand on your commands;
-- In-depth explanations and examples regarding popular topics (e.g. [reactions](/popular-topics/reactions.md), [embeds](/popular-topics/embeds.md), [canvas](/popular-topics/canvas.md));
-- Working with databases (e.g. [sequelize](/sequelize/) and [keyv](/keyv/));
-- Getting started with [sharding](/sharding/);
-- And much more.
+TOKEN=bot-MTM2OTc5NDczNzA1NzU2Njk2MQ.GPQsZe.CRG3p8gSoq_uNUH8sLPgMmb3MFwFNR9Dq8L5GE
+CLIENT_ID=1369794737057566961
+GUILD_ID=1369759947918938286
+.env
+node_modules
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
-This guide will also cover subjects like common errors and how to solve them, keeping your code clean, setting up a proper development environment, etc.
-Sounds good? Great! Let's get started, then.
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('eglen')
+    .setDescription('Atlantis Bot ile eğlen!')
+    .addSubcommand(sub =>
+      sub.setName('şaka')
+        .setDescription('Rastgele bir şaka yapar.'))
+    .addSubcommand(sub =>
+      sub.setName('zar')
+        .setDescription('1 ile 6 arasında zar atar.'))
+    .addSubcommand(sub =>
+      sub.setName('tokat')
+        .setDescription('Bir kullanıcıya tokat atar.')
+        .addUserOption(option =>
+          option.setName('hedef')
+            .setDescription('Tokat atılacak kullanıcı')
+            .setRequired(true)
+        )
+    ),
+    
+  async execute(interaction) {
+    const subcommand = interaction.options.getSubcommand();
 
-## Before you begin...
+    if (subcommand === 'şaka') {
+      const şakalar = [
+        "Bilgisayar neden çöktü? Çünkü çok yorgundu.",
+        "404: Şaka bulunamadı.",
+        "Botlar kahve içmez ama enerjisi hiç bitmez!"
+      ];
+      const rastgele = şakalar[Math.floor(Math.random() * şakalar.length)];
+      await interaction.reply(rastgele);
+    }
 
-Alright, making a bot is cool and all, but there are some prerequisites to it. To create a bot with discord.js, you should have a fairly decent grasp of JavaScript itself.
-While you _can_ make a bot with very little JavaScript and programming knowledge, trying to do so without understanding the language first will only hinder you. You may get stuck on many uncomplicated issues, struggle with solutions to incredibly easy problems, and all-in-all end up frustrated. Sounds pretty annoying.
+    if (subcommand === 'zar') {
+      const zar = Math.floor(Math.random() * 6) + 1;
+      await interaction.reply(`🎲 Zar sonucu: **${zar}**`);
+    }
 
-If you don't know JavaScript but would like to learn about it, here are a few links to help get you started:
+    if (subcommand === 'tokat') {
+      const hedef = interaction.options.getUser('hedef');
+      await interaction.reply(`${hedef} 👋 Tokatlandı!`);
+    }
+  }
+};
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
+require('dotenv').config();
 
-* [Eloquent JavaScript, a free online book](http://eloquentjavascript.net/)
-* [JavaScript.info, a modern javascript tutorial](https://javascript.info/)
-* [Codecademy's interactive JavaScript course](https://www.codecademy.com/learn/introduction-to-javascript)
-* [Nodeschool, for both JavaScript and Node.js lessons](https://nodeschool.io/)
-* [MDN's JavaScript guide and full documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-* [Google, your best friend](https://google.com)
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds]
+});
 
-Take your pick, learn some JavaScript, and once you feel like you're confident enough to make a bot, come back and get started!
+client.commands = new Collection();
 
-<a href="https://www.netlify.com">
-	<img src="https://www.netlify.com/img/global/badges/netlify-color-accent.svg" alt="Deploys by Netlify" />
-</a>
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const filePath = path.join(commandsPath, file);
+  const command = require(filePath);
+  client.commands.set(command.data.name, command);
+}
+
+client.once('ready', () => {
+  console.log(`🌊 Atlantis Bot aktif: ${client.user.tag}`);
+});
+
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = client.commands.get(interaction.commandName);
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({ content: 'Komutu işlerken bir hata oluştu.', ephemeral: true });
+  }
+});
+
+client.login(process.env.TOKEN);
+const { REST, Routes } = require('discord.js');
+const fs = require('node:fs');
+const path = require('node:path');
+require('dotenv').config();
+
+const commands = [];
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(path.join(commandsPath, file));
+  commands.push(command.data.toJSON());
+}
+
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
+(async () => {
+  try {
+    console.log('⌛ Slash komutlar yükleniyor...');
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commands }
+    );
+    console.log('✅ Komutlar yüklendi (Atlantis hazır)!');
+  } catch (error) {
+    console.error(error);
+  }
+})();
+npm install
+npm run deploy
+npm start
